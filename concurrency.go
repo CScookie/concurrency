@@ -6,10 +6,22 @@ import (
 )
 
 type (
-	WorkFunc      func(interface{}) (interface{}, error)
+	// WorkFunc represents a function that processes a single piece of data and returns a result or an error.
+	WorkFunc func(interface{}) (interface{}, error)
+
+	// BatchWorkFunc represents a function that processes a batch of data and returns results or an error.
 	BatchWorkFunc func([]interface{}) ([]interface{}, error)
 )
 
+// GenStream creates a channel that streams the elements of the given data slice.
+// It stops streaming if the context is canceled.
+//
+// Parameters:
+// - ctx: The context used to control cancellation.
+// - data: The slice of data to stream.
+//
+// Returns:
+// - A read-only channel that streams the data.
 func GenStream(ctx context.Context, data []interface{}) <-chan interface{} {
 	stream := make(chan interface{})
 	go func() {
@@ -30,6 +42,16 @@ func GenStream(ctx context.Context, data []interface{}) <-chan interface{} {
 	return stream
 }
 
+// DoWork processes data from an input channel using a given WorkFunc and streams the results.
+// Processing stops if the context is canceled.
+//
+// Parameters:
+// - ctx: The context used to control cancellation.
+// - c: The input channel to read data from.
+// - workFunc: The function to process each piece of data.
+//
+// Returns:
+// - A read-only channel that streams the processed results.
 func DoWork(ctx context.Context, c <-chan interface{}, workFunc WorkFunc) <-chan interface{} {
 	stream := make(chan interface{})
 	go func() {
@@ -54,6 +76,15 @@ func DoWork(ctx context.Context, c <-chan interface{}, workFunc WorkFunc) <-chan
 	return stream
 }
 
+// ReadStream reads data from an input channel and streams it to an output channel.
+// Stops streaming if the context is canceled.
+//
+// Parameters:
+// - ctx: The context used to control cancellation.
+// - c: The input channel to read data from.
+//
+// Returns:
+// - A read-only channel that streams the data.
 func ReadStream(ctx context.Context, c <-chan interface{}) <-chan interface{} {
 	stream := make(chan interface{})
 	go func() {
@@ -77,6 +108,16 @@ func ReadStream(ctx context.Context, c <-chan interface{}) <-chan interface{} {
 	return stream
 }
 
+// FanOut distributes data from a single input channel to multiple output channels,
+// processing each item using a corresponding WorkFunc. Stops processing if the context is canceled.
+//
+// Parameters:
+// - ctx: The context used to control cancellation.
+// - c: The input channel to read data from.
+// - workFuncs: A variadic list of WorkFunc functions for processing data.
+//
+// Returns:
+// - A slice of read-only channels, each streaming the processed results.
 func FanOut(ctx context.Context, c <-chan interface{}, workFuncs ...WorkFunc) []<-chan interface{} {
 	streams := make([]chan interface{}, len(workFuncs))
 	for i := range workFuncs {
@@ -125,6 +166,15 @@ func FanOut(ctx context.Context, c <-chan interface{}, workFuncs ...WorkFunc) []
 	return readOnlyChan(streams)
 }
 
+// FanIn merges multiple input channels into a single output channel.
+// Stops merging if the context is canceled.
+//
+// Parameters:
+// - ctx: The context used to control cancellation.
+// - streams: A slice of read-only channels to merge.
+//
+// Returns:
+// - A read-only channel streaming merged data from all input channels.
 func FanIn(ctx context.Context, streams []<-chan interface{}) <-chan interface{} {
 	stream := make(chan interface{})
 	var wg sync.WaitGroup
@@ -156,6 +206,17 @@ func FanIn(ctx context.Context, streams []<-chan interface{}) <-chan interface{}
 	return stream
 }
 
+// DoBatchWork processes data from an input channel in batches using a BatchWorkFunc.
+// Streams the batch results to an output channel. Stops processing if the context is canceled.
+//
+// Parameters:
+// - ctx: The context used to control cancellation.
+// - c: The input channel to read data from.
+// - batchSize: The number of items in each batch.
+// - batchWorkFunc: The function to process a batch of data.
+//
+// Returns:
+// - A read-only channel that streams the processed batch results.
 func DoBatchWork(ctx context.Context, c <-chan interface{}, batchSize int, batchWorkFunc BatchWorkFunc) <-chan interface{} {
 	stream := make(chan interface{})
 	var batch []interface{}
