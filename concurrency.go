@@ -132,10 +132,11 @@ func FanOut(ctx context.Context, c <-chan interface{}, workFuncs ...WorkFunc) []
 			case <-ctx.Done():
 				return
 			default:
+				innerWg := &sync.WaitGroup{}
 				for i, workFunc := range workFuncs {
-					wg.Add(1)
+					innerWg.Add(1)
 					go func(i int, data interface{}, workFunc WorkFunc) {
-						defer wg.Done()
+						defer innerWg.Done()
 						res, err := workFunc(data)
 						if err != nil {
 							return
@@ -147,6 +148,7 @@ func FanOut(ctx context.Context, c <-chan interface{}, workFuncs ...WorkFunc) []
 						}
 					}(i, data, workFunc)
 				}
+				innerWg.Wait()
 			}
 		}
 	}()
